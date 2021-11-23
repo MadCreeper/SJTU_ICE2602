@@ -4,9 +4,12 @@ index/
 index_zhCN/
 index_img/
 index*/
+testfolder/
+testfolder_zhCN/
 
 #submit zips
 5200309*.zip
+*.zip
 
 #PDFs
 *.pdf
