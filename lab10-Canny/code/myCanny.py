@@ -1,5 +1,5 @@
 import cv2
-from cv2 import cv2 # make vscode not complain
+from cv2 import Sobel, cv2 # make vscode not complain
 from matplotlib import pyplot as plt
 import math
 import numpy as np
@@ -12,9 +12,10 @@ def combine_grad(sx, sy):
     print(grad_M.shape)
     for i in range(HEIGHT):
         for j in range(WIDTH):
-            grad_M[i][j] = np.sqrt( sx[i][j] *  sx[i][j] + sy[i][j] * sy[i][j] )
+            dx, dy= float(sx[i][j]), float(sy[i][j])
+            grad_M[i][j] = np.sqrt(dx * dx + dy * dy)
     
-    grad_M = grad_M * 255 / np.max(grad_M)
+    #grad_M = grad_M * 255 / np.max(grad_M)
     return grad_M
 
 def nonMaxSuppression(img,dx,dy):
@@ -59,52 +60,61 @@ def nonMaxSuppression(img,dx,dy):
             gtmp1 = w * g1 + (1 - w) * g2
             gtmp2 = w * g3 + (1 - w) * g4
             if M[i][j] < gtmp1 or M[i][j] < gtmp2:
-                M[i][j] = 0    
+                M[i][j] = 0
+
     return M
 
 def doubleThresh(M,low_th,hi_th):
-    img = copy.deepcopy(M)
-    HEIGHT, WIDTH = img.shape[0], img.shape[1]
+    HEIGHT, WIDTH = M.shape[0], M.shape[1]
+    img = np.zeros([HEIGHT,WIDTH])
     for i in range(1, HEIGHT - 1):
         for j in range(1, WIDTH - 1):
-            if img[i][j] < low_th:
+            if M[i][j] < low_th:
                 img[i][j] = 0
-            elif img[i][j] > hi_th:
+            elif M[i][j] > hi_th:
                 img[i][j] = 255
-            elif (img[i-1][j-1:j+1] < hi_th).any() or (img[i+1][j-1:j+1] < hi_th).any() or (img[i][j-1] < hi_th) or (img[i][j+1] < hi_th): # 8邻域中有小于hi_th的点
+            elif (M[i-1][j-1:j+1] < hi_th).any() or (M[i+1][j-1:j+1] < hi_th).any() or (M[i][j-1] < hi_th) or (M[i][j+1] < hi_th): # 8邻域中有小于hi_th的点
                 img[i][j] = 255
     return img
 
-def docanny(filename):
-    SAVEDIR = 'result/'
+def docanny(filename,method):
+    SAVEDIR = 'result/' + method + '/'
     READDIR = 'dataset/'
-    lo_th, hi_th = 60, 150
+    lo_th, hi_th = 40,100
 
     img_gray = cv2.imread(READDIR + filename, cv2.IMREAD_GRAYSCALE)
     img_gauss= cv2.GaussianBlur(img_gray,(3,3),0)
-    sx = cv2.convertScaleAbs(cv2.Sobel(img_gauss, cv2.CV_16S, 1, 0))  # x方向梯度
-    sy = cv2.convertScaleAbs(cv2.Sobel(img_gauss, cv2.CV_16S, 0, 1))  # y方向梯度
-    M = cv2.convertScaleAbs(combine_grad(sx.astype(int), sy.astype(int)))
+    if method == "Sobel":
+    #Sobel
+        sx = cv2.Sobel(img_gauss, cv2.CV_16S, 1, 0)  # x方向梯度
+        sy = cv2.Sobel(img_gauss, cv2.CV_16S, 0, 1)  # y方向梯度
+    
+    if method == "Prewitt":
+
+        kernelx = np.array([[1,1,1],[0,0,0],[-1,-1,-1]],dtype=int)
+        kernely = np.array([[-1,0,1],[-1,0,1],[-1,0,1]],dtype=int)
+
+        sx = cv2.filter2D(img_gauss, cv2.CV_16S, kernelx)
+        sy = cv2.filter2D(img_gauss, cv2.CV_16S, kernely)
+       
+    
+    M = cv2.convertScaleAbs(combine_grad(sx, sy))
     #print(M)
     img_sup = nonMaxSuppression(M, sx, sy)
     
-    cv2.imshow(filename, M)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.imshow(filename, M)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
     
     img_fin = doubleThresh(img_sup, lo_th, hi_th)
 
     cv2.imwrite(f"{SAVEDIR}/lowTH{lo_th}_hiTH{hi_th}_{filename}", img_fin)
-    """
-    cv2.imshow(filename, img_fin)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    """
+ 
 
 def docanny_builtin(filename):
-    SAVEDIR = 'result/'
+    SAVEDIR = 'result/builtin/'
     READDIR = 'dataset/'
-    lo_th, hi_th = 60, 150
+    lo_th, hi_th = 40,100
     img_gray = cv2.imread(READDIR + filename, cv2.IMREAD_GRAYSCALE)
     img_fin = cv2.Canny(img_gray, lo_th, hi_th)
     cv2.imwrite(f"{SAVEDIR}/lowTH{lo_th}_hiTH{hi_th}_builtin_{filename}", img_fin)
@@ -116,9 +126,9 @@ if __name__ == '__main__':
     '3.jpg'
     ] 
     for file in files:
-        docanny(file)  
+        docanny(file,method="Sobel")  
+        docanny(file,method="Prewitt")  
         docanny_builtin(file)
-
 
 
 
