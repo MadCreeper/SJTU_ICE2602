@@ -23,7 +23,7 @@ def mark_corners(img,corners):
         cv2.circle(marked, (x,y),radius=5,color= [0,0,255])
     return marked
 
-def corner_detection(filename):
+def sift(filename):
     #SAVEDIR = 'result/builtin/'
     #maxCorners = 100
     READDIR = 'dataset/'
@@ -36,8 +36,22 @@ def corner_detection(filename):
     #img_marked = cv2.drawKeypoints(img_bgr,corners,img_bgr,color=(255,0,255))
     cv2.imshow("img_marked", img_marked)
     cv2.waitKey(0)
-    calc_img_pyramid(img_gray)
-    
+    gaussian_pyramid = calc_img_pyramid(img_gray)
+
+    for layer in gaussian_pyramid:
+        pass
+
+def calc_grad(img):
+    H, W = img.shape[0], img.shape[1]
+    img_theta = np.zeros((H, W))
+    grad_x = cv2.filter2D(img, cv2.CV_16S, np.array([-1,0,1]).reshape(1,3))
+    grad_y = cv2.filter2D(img, cv2.CV_16S, np.array([1,0,-1]).reshape(3,1))
+    for i in range(H):
+        for j in range(W):
+            img_theta = theta_grad(grad_x[i][j],grad_y[i][j])
+def calc_point_Descriptor():
+    pass
+
 if __name__ == '__main__':
     files = [
     #'1.jpg'
@@ -48,5 +62,5 @@ if __name__ == '__main__':
     "test.png"
     ] 
     for file in files:
-       corner_detection(file)
+       sift(file)
 
