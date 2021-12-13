@@ -235,338 +235,409 @@ showstringspaces=false,      % Leerzeichen in Strings anzeigen ?
 
 
 
-\title{Lab11\quad SIFT尺度不变特征变换}
-\date{2021.11}
+\title{Lab11\&{12}\quad SIFT尺度不变特征变换}
+\date{2021.12}
 \author{孙济宸\quad \quad 学号：520030910016 \quad  \quad 班级：F2003003}
 \begin{document}
 \maketitle
 \section{实验概览}
-按照以下步骤，实现SIFT算法，测试图像匹配效果，并与OpenCV内置库比较。
-\begin{item}
-\item 使用resize构建图像金字塔（5层）
-\item 对于金字塔每一层图像，首先高斯模糊，去除噪声；
-\item 提取特征点，原论文中使用DoG高斯差分金字塔寻找极值点，实验中采用OpenCV内置的goodFeaturesToTrack()方法直接获取特征点。
-\item 计算梯度大小及方向角矩阵
-\item 计算描述子。对于每个特征点，通过在
-
-\end{item}
+实现SIFT算法，测试图像匹配效果，并与OpenCV内置库比较。
+使用Harris角点提取简化实现。
 \section{实验环境}
 \begin{itemize}
 	\item OpenCV
 	\item numpy
-
+	
 \end{itemize}
-\newpage
+
 
 \section{练习题的解决思路}
+
+
 \begin{enumerate}
+\item 使用resize构建图像金字塔（5层）
+\begin{lstlisting}[style=py]
+    pyramid = []
+    height, width = img.shape[0], img.shape[1]
+    multipliers = [int(2 ** i) for i in range(layers)] # 0(original), /2, /4 , etc.
+    pyramid.append(img)
+    for i in range(1, layers):
+        resized_img = cv2.resize(img,(width // 2**i, height // 2**i))
+        pyramid.append(resized_img)
+\end{lstlisting}
+\item 对于金字塔每一层图像，首先高斯模糊，去除噪声；
+\begin{lstlisting}[style=py]
+img_gray = cv2.GaussianBlur(img_gray, (5, 5), 1, 1)
+\end{lstlisting}
+\item 提取特征点，原论文中使用DoG高斯差分金字塔寻找极值点，实验中采用OpenCV内置的goodFeaturesToTrack()方法直接获取特征点。
+\begin{lstlisting}[style=py]
+corners = [[int(c[0][0]),int(c[0][1])] for c in \
+               cv2.goodFeaturesToTrack(image = img_gray, maxCorners = 50, qualityLevel = 0.01, minDistance = 10,  blockSize = 3, useHarrisDetector = True)]
+    corners = np.array(corners)
+\end{lstlisting}
+\item 计算梯度大小及方向角矩阵
 
+\item 计算描述子。对于每个特征点，通过在一个正方形邻域里统计梯度方向直方图，在36个方向上vote的方式获得主方向。
+\item 在特征点的邻域内，把正方形邻域分成4*4个块，每块内再用类似主方向的统计方式在8个方向上vote，得到直方图，最后获得4*4*8=128维描述子。其中，在计算方向的时候把坐标在主方向$\theta$上进行旋转变换，以保证描述子旋转不变性。这样得到的坐标不是整数，需要进行双线性插值。
+\begin{center}
+\includegraphics[width=0.8\textwidth]{grad.png}\\
+\end{center}
 
-\item Gaussian模糊。用高斯算子对图片卷积，起到去除噪声的效果
-\item 使用梯度算子（如Sobel）求x,y方向梯度及梯度强度。梯度算子也是对图片卷积得到梯度矩阵。用x方向、y方向的梯度算子就可以得到对应方向的梯度矩阵。 Sobel算子卷积核为：
-$$s_x=
-\begin{pmatrix}
- -1 & 0 & 1 \\
- -2 & 0 & 2 \\
- -1 & 0 & 1
+旋转变换：
+\begin{equation}
+v' = \begin{pmatrix}
+\cos\theta & -\sin\theta \\
+\sin\theta & \cos\theta
 \end{pmatrix}
+v
+\end{equation}
+\begin{center}
+\includegraphics[width=0.5\textwidth]{rotate.png}\\
+\end{center}
+
+双线性插值：
 $$
-$$s_y=
-\begin{pmatrix}
- 1 & 2 & 1 \\
- 0 & 0 & 0 \\
- -1 & -2 & -1
-\end{pmatrix}
+\theta(x',y') = \theta(x, y)dx_2dy_2 
+                + \theta(x+1,y)dx_1dy_2 
+                + \theta(x, y+1)dx_2dy_1 
+                + \theta(x+1, y+1)dx_1dy_1
 $$
-\item 进行非极大值抑制。原理是，在一个点的梯度方向上查找，如果发现这个点不是局部最大值，则其一定不是边缘，去除之。具体操作中需要对梯度方向上的点进行插值。
-\item 将上一步结果双阈值二值化。小于低限的直接置为0，大于高限的置为255，在高低限之间的看周围8邻域中有无小于高限的，有则置为255，无则置为0。
+\begin{center}
+\includegraphics[width=0.5\textwidth]{dblinear.png}\\
+\end{center}
+
+代码较长见附录
+\item 把图片全部特征点计算出描述子。对于金字塔的每层重复2-7, 其中角点坐标需要映射回原图的尺度。
+\begin{lstlisting}[style=py]
+def sift_multilayer(img): #在图像金字塔上进行sift操作
+    pyramid, multipliers = calc_img_pyramid(img)
+    i = 0
+    all_desc = []
+    all_corners = []
+    for layer in pyramid:
+        desc, corners = sift_singlelayer(layer)
+        corners *= multipliers[i] # 把角点坐标变回原来的尺度
+        i += 1
+        all_desc += desc
+        all_corners += list(corners)
+    
+    return all_desc, all_corners
+\end{lstlisting}
+\item 两幅图匹配时，只需对两张图的全部描述子两两匹配计算匹配度（向量点乘），大于一定阈值即可认为两点成功匹配。
+\begin{lstlisting}[style=py]
+def match_2imgs(merged, desc1, desc2, corners1, corners2, H, W, filename, thresh=0.8, matched_thresh=0.1):
+    len1, len2 = len(corners1), len(corners2)
+    matched = 0
+    for i in range(len1):
+        for j in range(len2):
+            if np.inner(desc1[i], desc2[j]) > thresh:
+                matched += 1
+                 # 匹配点画圆圈和线
+                color = color = ((random.randint(0, 255)), (random.randint(0, 255)), (random.randint(0, 255))) # random color
+                pos1 = tuple([int(corners2[j][0]), int(corners2[j][1])])
+                pos2 = tuple([int(corners1[i][0] + W), int(corners1[i][1])])
+                cv2.line(merged, pos1, pos2, color=color, thickness=1)
+                cv2.circle(merged, pos1, radius=5, color=color, thickness=2)
+                cv2.circle(merged, pos2, radius=5, color=color, thickness=2)
+    
+    if matched > matched_thresh * min(len1, len2): # 匹配点数量大于10%，认为匹配到了
+        cv2.imwrite(f"result_{filename}_thresh{thresh}.png", merged)
+        print(f"{filename} Match! Showing result: {matched} corners matched")
+        cv2.imshow(f"{filename}", merged)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    else:
+        print(f"{filename} NO Match!")
+\end{lstlisting}
 \end{enumerate}
+
 
 
 
 \section{代码运行结果}
 
-\subsection{low threshold = 40, high threshold = 100}
+匹配阈值=0.8
 
 \begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{1.jpg}
+\subfigure[自己实现的SIFT]{
+	\includegraphics[width=1\textwidth]{result_3.jpg_thresh0.8.png}
 	\centering
 }
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH40_hiTH100_1.jpg}
+\subfigure[Opencv-SIFT]{
+	\includegraphics[width=1\textwidth]{match.png}
 	
 }
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH40_hiTH100_1.jpg}
+
 	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH40_hiTH100_builtin_1.jpg}
-	
-}	
-\caption{1.jpg}
+
+
 \end{figure}
 
 
 \begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{2.jpg}
+\subfigure[自己实现的SIFT]{
+	\includegraphics[width=1\textwidth]{result_6.jpg_thresh0.8.png}
 	\centering
 }
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH40_hiTH100_2.jpg}
+\subfigure[Opencv-SIFT]{
+	\includegraphics[width=1\textwidth]{match3.png}
 	
 }
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH40_hiTH100_2.jpg}
-	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH40_hiTH100_builtin_2.jpg}
-	
-}	
-\caption{2.jpg}
-\end{figure}
 
+	
+
+
+\end{figure}
 
 \begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{3.jpg}
+\subfigure[自己实现的SIFT]{
+	\includegraphics[width=1\textwidth]{result_7.jpg_thresh0.8.png}
 	\centering
 }
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH40_hiTH100_3.jpg}
+\subfigure[Opencv-SIFT]{
+	\includegraphics[width=1\textwidth]{match2.png}
 	
 }
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH40_hiTH100_3.jpg}
+
 	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH40_hiTH100_builtin_3.jpg}
-	
-}	
-\caption{3.jpg}
+
+
 \end{figure}
 
+可以看出，实现的SIFT比较好地达成了尺度不变性，对图片旋转缩放都可以正确匹配，而且匹配点精确。基本达到了OpenCV库内置的效果。
 
 
 
-\subsection{low threshold = 60, high threshold = 120}
 
-
-
-\begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{1.jpg}
-	\centering
-}
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH60_hiTH120_1.jpg}
-	
-}
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH60_hiTH120_1.jpg}
-	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH60_hiTH120_builtin_1.jpg}
-	
-}	
-\caption{1.jpg}
-\end{figure}
-
-
-\begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{2.jpg}
-	\centering
-}
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH60_hiTH120_2.jpg}
-	
-}
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH60_hiTH120_2.jpg}
-	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH60_hiTH120_builtin_2.jpg}
-	
-}	
-\caption{2.jpg}
-\end{figure}
-
-
-\begin{figure}[H]
-\subfigure[原图]{
-	\includegraphics[width=0.5\textwidth]{3.jpg}
-	\centering
-}
-\subfigure[自己实现Canny (Sobel)]{
-	\includegraphics[width=0.5\textwidth]{./Sobel/lowTH60_hiTH120_3.jpg}
-	
-}
-\subfigure[自己实现Canny （Prewitt)]{
-	\includegraphics[width=0.5\textwidth]{./Prewitt/lowTH60_hiTH120_3.jpg}
-	
-}
-\subfigure[cv2内置Canny]{
-	\includegraphics[width=0.5\textwidth]{./builtin/lowTH60_hiTH120_builtin_3.jpg}
-	
-}	
-\caption{3.jpg}
-\end{figure}
 
 \section{分析与思考}
 \begin{itemize}
-\item 总的来说使用Sobel算子的效果是比较好的，最终实现效果接近于opencv内置的Canny算法，只是有些图片会出现较粗边缘或者双边缘，目前没有找到原因，推测可能是非极大值抑制实现方式不同。 
-\item 低限和高限设置方面，设置得低可以提高边缘检测敏感度，但也对噪声更加敏感；设高了反之，能抑制噪声，但微小细节会丢失。具体使用中还是要视情况而定。
-\item Prewitt算子对Canny算法效果不佳，边缘断断续续，应该是因为缺乏对与相邻像素的加权（sobel算子中是2倍）导致边缘没法很好的用双阈值法区分出来。
-\item 可能是实现语言关系，自己在python中实现的Canny性能不如C语言实现的cv2库，运行速度比内置函数慢不少。
-\end{itemize}
-
+\item 这次实验总体比较成功，工作量很大，也在网上查阅了很多原理和代码实现方法，最终结果令人满意。
+\item 由于用Harris角点提取简化了步骤，没有用高斯金字塔，在处理图像时一定要先高斯模糊，否则受噪声影响巨大。
+\item 为保证SIFT描述子具有旋转不变性，在计算梯度方向和统计梯度方向直方图时需要进行一步坐标旋转变换，否则达不到效果。
+\item 然而尺度不变性也导致如果一张图片上有多个相似物体，这些物体都会产生相似的描述子，导致匹配的时候其中任何一个都可能匹配上，因为算法并不会管特征点本身所处的位置，是算法本身的局限
+\item 很多时候进行完数学操作必须注意numpy数组的数据类型，对于图片都是uint8，否则cv2函数可能会报错
+\item 为代码实现简洁和运行效率，尽可能使用numpy和cv2库中的函数，不要自己写多重循环操作
 \newpage
-
+\end{itemize}
 \section{附录：python代码}
 \begin{lstlisting}[style=py]
 import cv2
-from cv2 import Sobel, cv2 # make vscode not complain
+from cv2 import Sobel, cv2, resize # make vscode not complain
 from matplotlib import pyplot as plt
 import math
 import numpy as np
 import copy
-def combine_grad(sx, sy):
-    if sx.shape != sy.shape:
-        raise ValueError 
-    HEIGHT, WIDTH = sx.shape[0], sx.shape[1]
-    grad_M = np.zeros([HEIGHT,WIDTH])
-    print(grad_M.shape)
-    for i in range(HEIGHT):
-        for j in range(WIDTH):
-            dx, dy= float(sx[i][j]), float(sy[i][j])
-            grad_M[i][j] = np.sqrt(dx * dx + dy * dy)
+import random
+
+from numpy.matrixlib import mat
+PI = 3.1415926
+
+def __atan(x, y):  # return 0 ~ 2PI arctan of vector (x,y)
+    return np.arctan2(y, x) if y > 0 else np.arctan2(y,x) + 2*PI
+
+def calc_img_pyramid(img, layers=5):
+    pyramid = []
+    height, width = img.shape[0], img.shape[1]
+    #print(height, width)
+    multipliers = [int(2 ** i) for i in range(layers)] # 0(original), /2, /4 , etc.
+    pyramid.append(img)
+    for i in range(1, layers):
+        resized_img = cv2.resize(img,(width // 2**i, height // 2**i))
+        pyramid.append(resized_img)
+        #cv2.imshow(str(i),resized_img)
+        #cv2.waitKey(0)
+        
+    return pyramid, multipliers
+
     
-    #grad_M = grad_M * 255 / np.max(grad_M)
-    return grad_M
+def sift_singlelayer(img_gray):
 
-def nonMaxSuppression(img,dx,dy):
-    M = copy.deepcopy(img)
-    if not (M.shape == dx.shape and M.shape == dy.shape):
-        raise ValueError 
-    HEIGHT, WIDTH = M.shape[0], M.shape[1]
-    EPS = 1e-6
-    for i in range(1, HEIGHT - 1):
-        for j in range(1, WIDTH - 1):
-            gradx = float(dx[i][j])
-            grady = float(dy[i][j])
-            if np.abs(gradx) < EPS:
-                gradx = EPS
-            if np.abs(grady) < EPS:
-                grady = EPS
-                
-            #gradm = M[i][j]
-            if np.abs(grady) > np.abs(gradx):  # 梯度绝对值y方向大于x方向
-                w = np.abs(gradx) / np.abs(grady)
-                g2 = M[i-1][j]
-                g4 = M[i+1][j]
-                
-                if gradx * grady > 0: # x,y梯度同号
-                    g1 = M[i-1][j-1]
-                    g3 = M[i+1][j+1]
-                else: # x,y梯度反号
-                    g1 = M[i-1][j+1]
-                    g3 = M[i+1][j-1]
-            else:
-                w =  np.abs(grady) / np.abs(gradx)
-                g2 = M[i][j-1]
-                g4 = M[i][j+1]
-                
-                if gradx * grady > 0: # x,y梯度同号
-                    g1 = M[i-1][j-1]
-                    g3 = M[i+1][j+1]
-                else: # x,y梯度反向
-                    g1 = M[i-1][j+1]
-                    g3 = M[i+1][j-1]
-            
-            gtmp1 = w * g1 + (1 - w) * g2
-            gtmp2 = w * g3 + (1 - w) * g4
-            if M[i][j] < gtmp1 or M[i][j] < gtmp2:
-                M[i][j] = 0
-
-    return M
-
-def doubleThresh(M,low_th,hi_th):
-    HEIGHT, WIDTH = M.shape[0], M.shape[1]
-    img = np.zeros([HEIGHT,WIDTH])
-    for i in range(1, HEIGHT - 1):
-        for j in range(1, WIDTH - 1):
-            if M[i][j] < low_th:
-                img[i][j] = 0
-            elif M[i][j] > hi_th:
-                img[i][j] = 255
-            elif (M[i-1][j-1:j+1] < hi_th).any() or (M[i+1][j-1:j+1] < hi_th).any() or (M[i][j-1] < hi_th) or (M[i][j+1] < hi_th): # 8邻域中有小于hi_th的点
-                img[i][j] = 255
-    return img
-
-def docanny(filename,method):
-    SAVEDIR = 'result/' + method + '/'
-    READDIR = 'dataset/'
-    lo_th, hi_th = 40,100
-
-    img_gray = cv2.imread(READDIR + filename, cv2.IMREAD_GRAYSCALE)
-    img_gauss= cv2.GaussianBlur(img_gray,(3,3),0)
-    if method == "Sobel":
-    #Sobel
-        sx = cv2.Sobel(img_gauss, cv2.CV_16S, 1, 0)  # x方向梯度
-        sy = cv2.Sobel(img_gauss, cv2.CV_16S, 0, 1)  # y方向梯度
+    H, W = img_gray.shape[0], img_gray.shape[1]
+     # Harris 获得角点
+    img_gray = cv2.GaussianBlur(img_gray, (5, 5), 1, 1)
+    corners = [[int(c[0][0]),int(c[0][1])] for c in \
+               cv2.goodFeaturesToTrack(image = img_gray, maxCorners = 50, qualityLevel = 0.01, minDistance = 10,  blockSize = 3, useHarrisDetector = True)]
+    corners = np.array(corners)
+    corner_cnt = len(corners)
+    # list of tuples (corner (x,y))
+    #计算梯度
+    gx, gy, gm, gtheta = calc_grad(img_gray)
+    # 计算主方向矩阵
+    main_dir = vote(corners, gm, gtheta, H, W)
     
-    if method == "Prewitt":
+    # 计算描述子
+    #print(H, W)
+    descriptors = []
+    for i in range(corner_cnt):
+        #print(H, W)
+        desc = calc_descriptor(corners[i],  gtheta, main_dir[i], H, W)
 
-        kernelx = np.array([[1,1,1],[0,0,0],[-1,-1,-1]],dtype=int)
-        kernely = np.array([[-1,0,1],[-1,0,1],[-1,0,1]],dtype=int)
+        descriptors.append(desc / np.linalg.norm(desc)) # 归一化
+    return descriptors, corners
+    
+def vote(corners, grad, theta, H, W):
+    BINSIZE = (H + W) // 80
+    main_dir = []
+    for corner in corners:
+        _hist = np.zeros(36)
+        y, x = corner
+        for i in range( max(0, x - BINSIZE), min (H, x + BINSIZE + 1)):
+            for j in range( max(0, y - BINSIZE), min(W, y + BINSIZE)):
+                deg10 = min( round(theta[i][j] * 18 / PI), 35 )
+                _hist[deg10] += grad[i][j]
+        most_deg10 = np.argmax(_hist)
+        main_dir.append(( most_deg10 + 0.5 ) / 18 * PI)
+    
+    return main_dir
 
-        sx = cv2.filter2D(img_gauss, cv2.CV_16S, kernelx)
-        sy = cv2.filter2D(img_gauss, cv2.CV_16S, kernely)
-       
-    
-    M = cv2.convertScaleAbs(combine_grad(sx, sy))
-    #print(M)
-    img_sup = nonMaxSuppression(M, sx, sy)
-    
-    #cv2.imshow(filename, M)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
-    
-    img_fin = doubleThresh(img_sup, lo_th, hi_th)
 
-    cv2.imwrite(f"{SAVEDIR}/lowTH{lo_th}_hiTH{hi_th}_{filename}", img_fin)
+def calc_descriptor(pos, gradtheta, theta, HEIGHT, WIDTH):
+    
+    
+    def dbl_linear(x, y): # 双线性插值
+        def dtheta(x, y): # delta-theta of vector (x,y) and theta
+            if (x < 0 or x >= HEIGHT) or (y < 0 or y >= WIDTH):
+                return 0
+            diff = gradtheta[x][y] - theta
+            return diff if diff > 0 else diff + 2 * PI
+        
+        xx, yy = int(x), int(y)
+        dy1, dy2 = y-yy, yy+1-y
+        dx1, dx2 = x-xx, xx+1-x
+        interpol = dtheta(xx, yy)*dx2*dy2 \
+                + dtheta(xx+1,yy)*dx1*dy2 \
+                + dtheta(xx, yy+1)*dx2*dy1 \
+                + dtheta(xx+1, yy+1)*dx1*dy1
+        return interpol
+
+    y0, x0 = pos
+    # 坐标旋转矩阵
+    rotation = np.array([[math.cos(theta), - math.sin(theta)],
+                        [math.sin(theta), math.cos(theta)]])
+
+    
+    def _vote(x1, x2, y1, y2, xsign, ysign):
+        hist = np.zeros(8)
+        for x in range(x1, x2):
+            for y in range(y1, y2):
+                v = np.array([x * xsign, y * ysign]).T
+                _v = rotation @ v  # 旋转以后的坐标
+                deg45 = int( (dbl_linear(_v.T[0] + x0, _v.T[1] + y0)) // (PI/4)) # 分成8块 8*45=360
+                hist[min(deg45, 7)] += 1
+        return list(hist)
+
+    BINSIZE = (HEIGHT + WIDTH) // 128
+    descriptor = []
+    for xsign in [-1,1]:  # 四个象限统计
+        for ysign in [-1,1]:
+            descriptor += _vote(0, BINSIZE, 0, BINSIZE, xsign, ysign)
+            descriptor += _vote(BINSIZE, BINSIZE * 2, 0, BINSIZE, xsign, ysign)
+            descriptor += _vote(BINSIZE, BINSIZE * 2, BINSIZE, BINSIZE * 2, xsign, ysign)
+            descriptor += _vote(0, BINSIZE, BINSIZE, BINSIZE * 2, xsign, ysign)
+    return np.array(descriptor)
+
+
+def calc_grad(img): # 计算梯度和梯度方向角度矩阵
+    H, W = img.shape[0], img.shape[1]
+    grad_theta = np.zeros((H, W))
+    grad_M =  np.zeros((H, W))
+    grad_x = cv2.filter2D(img, cv2.CV_16S, np.array([-1,0,1]).reshape(1,3))
+    grad_y = cv2.filter2D(img, cv2.CV_16S, np.array([1,0,-1]).reshape(3,1))
+    for i in range(H):
+        for j in range(W):
+            grad_theta[i][j] = __atan(grad_x[i][j],grad_y[i][j])
+            grad_M[i][j] = np.sqrt(np.square(float(grad_x[i][j])) + np.square(float(grad_y[i][j])))
+    return grad_x, grad_y, grad_M, grad_theta
+
+
+def compare(img, merged, target_desc, target_corners, H, W, filename):
+    img_desc, img_corners = sift_singlelayer(img)
+    match_2imgs(merged, img_desc, target_desc, img_corners, target_corners, H, W, filename)
+    
+def sift_multilayer(img): #在图像金字塔上进行sift操作
+    pyramid, multipliers = calc_img_pyramid(img)
+    i = 0
+    all_desc = []
+    all_corners = []
+    for layer in pyramid:
+        desc, corners = sift_singlelayer(layer)
+        corners *= multipliers[i] # 把角点坐标变回原来的尺度
+        i += 1
+        all_desc += desc
+        all_corners += list(corners)
+    
+    return all_desc, all_corners
+    
+def concatenate_2imgs(img1, img2): # 把两张图横向拼接
+    H1, W1 = img1.shape[0:2]
+    H2, W2 = img2.shape[0:2]
+    
+    if H1 == H2:
+        return cv2.hconcat(img1, img2)
+    if H1 < H2: # 两张图不一样高的情况
+        filler = np.zeros((H2-H1, W1, 3), dtype=int)
+        return np.hstack([np.vstack([img1, filler]), img2]).astype(np.uint8)
+    else:
+        filler = np.zeros((H1-H2, W2, 3), dtype=int)
+        return np.hstack([img1, np.vstack([img2, filler])]).astype(np.uint8)
+
+
+def match_2imgs(merged, desc1, desc2, corners1, corners2, H, W, filename, thresh=0.8, matched_thresh=0.1):
+    len1, len2 = len(corners1), len(corners2)
+    matched = 0
+    for i in range(len1):
+        for j in range(len2):
+            if np.inner(desc1[i], desc2[j]) > thresh:
+                matched += 1
+                 # 匹配点画圆圈和线
+                color = color = ((random.randint(0, 255)), (random.randint(0, 255)), (random.randint(0, 255))) # random color
+                pos1 = tuple([int(corners2[j][0]), int(corners2[j][1])])
+                pos2 = tuple([int(corners1[i][0] + W), int(corners1[i][1])])
+                cv2.line(merged, pos1, pos2, color=color, thickness=1)
+                cv2.circle(merged, pos1, radius=5, color=color, thickness=2)
+                cv2.circle(merged, pos2, radius=5, color=color, thickness=2)
+    
+    if matched > matched_thresh * min(len1, len2): # 匹配点数量大于10%，认为匹配到了
+        cv2.imwrite(f"result_{filename}_thresh{thresh}.png", merged)
+        print(f"{filename} Match! Showing result: {matched} corners matched")
+        cv2.imshow(f"{filename}", merged)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    else:
+        print(f"{filename} NO Match!")
+
+
+if __name__ == "__main__":
+
+    target = cv2.imread(r"target.jpg")
+    imgs = [cv2.imread(f"./dataset/{i}.jpg") for i in range(1,6)]
+   
+    target_gray = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+    imgs_gray = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in imgs]  # 转化为灰度图
+
  
+    target_desc, target_corners = sift_multilayer(target_gray)
+    H, W = target.shape[0:2]
+    for i, img_gray in enumerate(imgs_gray):
+        merged = concatenate_2imgs(target, imgs[i])
+      
+        compare(img_gray, merged, target_desc, target_corners, H, W, str(i+1)+'.jpg')
 
-def docanny_builtin(filename):
-    SAVEDIR = 'result/builtin/'
-    READDIR = 'dataset/'
-    lo_th, hi_th = 40,100
-    img_gray = cv2.imread(READDIR + filename, cv2.IMREAD_GRAYSCALE)
-    img_fin = cv2.Canny(img_gray, lo_th, hi_th)
-    cv2.imwrite(f"{SAVEDIR}/lowTH{lo_th}_hiTH{hi_th}_builtin_{filename}", img_fin)
-
-if __name__ == '__main__':
-    files = [
-    '1.jpg',
-    '2.jpg',
-    '3.jpg'
-    ] 
-    for file in files:
-        docanny(file,method="Sobel")  
-        docanny(file,method="Prewitt")  
-        docanny_builtin(file)
 
 
 
 
 \end{lstlisting}
+\section{Reference}
+\noindent
+https://zhuanlan.zhihu.com/p/157578594\\
+https://www.pythonheidong.com/blog/article/301412/de52ba77b3331350ccb7/\\
+https://zhuanlan.zhihu.com/p/102272392\\
+https://www.pythonf.cn/read/86508\\
+https://blog.csdn.net/abcjennifer/article/details/7639681\\
 \end{document}
 
 

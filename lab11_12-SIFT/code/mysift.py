@@ -12,30 +12,19 @@ PI = 3.1415926
 def __atan(x, y):  # return 0 ~ 2PI arctan of vector (x,y)
     return np.arctan2(y, x) if y > 0 else np.arctan2(y,x) + 2*PI
 
-def calc_img_pyramid(img, layers=5):
+def calc_img_pyramid(img, layers=5): # 计算高斯金字塔
     pyramid = []
     height, width = img.shape[0], img.shape[1]
-    #print(height, width)
     multipliers = [int(2 ** i) for i in range(layers)] # 0(original), /2, /4 , etc.
     pyramid.append(img)
     for i in range(1, layers):
         resized_img = cv2.resize(img,(width // 2**i, height // 2**i))
         pyramid.append(resized_img)
-        #cv2.imshow(str(i),resized_img)
-        #cv2.waitKey(0)
-        
+
     return pyramid, multipliers
 
-def mark_corners(img,corners):
-    marked = copy.deepcopy(img)
-    for corner in corners:
-        x, y = int(corner[0][0]), int(corner[0][1])
-        #print(x,y)
-        cv2.circle(marked, (x,y),radius=5,color= [0,0,255])
-    return marked
-
     
-def sift_onelayer(img_gray):
+def sift_singlelayer(img_gray): # 单层图片的sift
 
     H, W = img_gray.shape[0], img_gray.shape[1]
      # Harris 获得角点
@@ -56,12 +45,13 @@ def sift_onelayer(img_gray):
     for i in range(corner_cnt):
         #print(H, W)
         desc = calc_descriptor(corners[i],  gtheta, main_dir[i], H, W)
-
         descriptors.append(desc / np.linalg.norm(desc)) # 归一化
+        
     return descriptors, corners
     
-def vote(corners, grad, theta, H, W):
-    BINSIZE = (H + W) // 80
+def vote(corners, grad, theta, H, W):  # 主方向 vote直方图
+    BINSIZE = (H + W) // 80   # 经测试比固定BINSIZE效果好
+    
     main_dir = []
     for corner in corners:
         _hist = np.zeros(36)
@@ -76,8 +66,7 @@ def vote(corners, grad, theta, H, W):
     return main_dir
 
 
-def calc_descriptor(pos, gradtheta, theta, HEIGHT, WIDTH):
-    
+def calc_descriptor(pos, gradtheta, theta, HEIGHT, WIDTH): # 计算一个特征点的描述子
     
     def dbl_linear(x, y): # 双线性插值
         def dtheta(x, y): # delta-theta of vector (x,y) and theta
@@ -101,24 +90,25 @@ def calc_descriptor(pos, gradtheta, theta, HEIGHT, WIDTH):
                         [math.sin(theta), math.cos(theta)]])
 
     
-    def cnt(x1, x2, y1, y2, xsign, ysign):
+    def _vote(x1, x2, y1, y2, xsign, ysign):
         hist = np.zeros(8)
         for x in range(x1, x2):
             for y in range(y1, y2):
                 v = np.array([x * xsign, y * ysign]).T
                 _v = rotation @ v  # 旋转以后的坐标
-                deg45 = int( (dbl_linear(_v.T[0] + x0, _v.T[1] + y0)) // (PI/4)) # 分成8块 8*45=360
+                deg45 = int( (dbl_linear(_v.T[0] + x0, _v.T[1] + y0)) // (PI/4)) # 分成8份 8*45=360
                 hist[min(deg45, 7)] += 1
         return list(hist)
-
-    BINSIZE = (HEIGHT + WIDTH) // 128
+ 
+    BINSIZE = (HEIGHT + WIDTH) // 128  # 经测试比固定BINSIZE效果好
+   
     descriptor = []
-    for xsign in [-1,1]:  # 四个象限统计
+    for xsign in [-1,1]:  # 四个象限统计，每个象限细分为4块
         for ysign in [-1,1]:
-            descriptor += cnt(0, BINSIZE, 0, BINSIZE, xsign, ysign)
-            descriptor += cnt(BINSIZE, BINSIZE * 2, 0, BINSIZE, xsign, ysign)
-            descriptor += cnt(BINSIZE, BINSIZE * 2, BINSIZE, BINSIZE * 2, xsign, ysign)
-            descriptor += cnt(0, BINSIZE, BINSIZE, BINSIZE * 2, xsign, ysign)
+            descriptor += _vote(0, BINSIZE, 0, BINSIZE, xsign, ysign)
+            descriptor += _vote(BINSIZE, BINSIZE * 2, 0, BINSIZE, xsign, ysign)
+            descriptor += _vote(BINSIZE, BINSIZE * 2, BINSIZE, BINSIZE * 2, xsign, ysign)
+            descriptor += _vote(0, BINSIZE, BINSIZE, BINSIZE * 2, xsign, ysign)
     return np.array(descriptor)
 
 
@@ -136,7 +126,7 @@ def calc_grad(img): # 计算梯度和梯度方向角度矩阵
 
 
 def compare(img, merged, target_desc, target_corners, H, W, filename):
-    img_desc, img_corners = sift_onelayer(img)
+    img_desc, img_corners = sift_singlelayer(img)
     match_2imgs(merged, img_desc, target_desc, img_corners, target_corners, H, W, filename)
     
 def sift_multilayer(img): #在图像金字塔上进行sift操作
@@ -145,7 +135,7 @@ def sift_multilayer(img): #在图像金字塔上进行sift操作
     all_desc = []
     all_corners = []
     for layer in pyramid:
-        desc, corners = sift_onelayer(layer)
+        desc, corners = sift_singlelayer(layer)
         corners *= multipliers[i] # 把角点坐标变回原来的尺度
         i += 1
         all_desc += desc
@@ -158,7 +148,7 @@ def concatenate_2imgs(img1, img2): # 把两张图横向拼接
     H2, W2 = img2.shape[0:2]
     
     if H1 == H2:
-        return cv2.hconcat(img1, img2)
+        return np.hstack([img1, img2]).astype(np.uint8)
     if H1 < H2: # 两张图不一样高的情况
         filler = np.zeros((H2-H1, W1, 3), dtype=int)
         return np.hstack([np.vstack([img1, filler]), img2]).astype(np.uint8)
@@ -176,7 +166,6 @@ def match_2imgs(merged, desc1, desc2, corners1, corners2, H, W, filename, thresh
                 matched += 1
                  # 匹配点画圆圈和线
                 color = color = ((random.randint(0, 255)), (random.randint(0, 255)), (random.randint(0, 255))) # random color
-               
                 pos1 = tuple([int(corners2[j][0]), int(corners2[j][1])])
                 pos2 = tuple([int(corners1[i][0] + W), int(corners1[i][1])])
                 cv2.line(merged, pos1, pos2, color=color, thickness=1)
@@ -196,10 +185,9 @@ def match_2imgs(merged, desc1, desc2, corners1, corners2, H, W, filename, thresh
 
 if __name__ == "__main__":
 
-    ### SIFT ###
     target = cv2.imread(r"target.jpg")
-    imgs = [cv2.imread(f"./dataset/{i}.jpg") for i in range(1,6)]
-   
+    imgs = [cv2.imread(f"./dataset/{i}.jpg") for i in range(1,8)]
+    
     target_gray = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
     imgs_gray = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in imgs]  # 转化为灰度图
 
@@ -208,9 +196,6 @@ if __name__ == "__main__":
     H, W = target.shape[0:2]
     for i, img_gray in enumerate(imgs_gray):
         merged = concatenate_2imgs(target, imgs[i])
-        #print(merged.shape)
-        #cv2.imshow("M",merged)
-        #cv2.waitKey(0)
-        #cv2.destroyAllWindows()
+      
         compare(img_gray, merged, target_desc, target_corners, H, W, str(i+1)+'.jpg')
 
