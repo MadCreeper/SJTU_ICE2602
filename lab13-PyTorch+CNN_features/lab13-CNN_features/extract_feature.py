@@ -8,10 +8,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets.folder import default_loader
 normalized = lambda x: x / np.linalg.norm(x)
-def compute_similarity(feat_1, feat_2):
-	dist = np.linalg.norm(feat_1 - feat_2)
-	angle = np.arccos(np.minimum(1, np.maximum(feat_1 @ feat_2, -1)))
-	return dist, angle
+
 
 print('Load model: ResNet50')
 model = torch.hub.load('pytorch/vision', 'resnet50', pretrained=True)
@@ -32,7 +29,7 @@ test_image = default_loader('cat2.jpg')
 input_image = trans(test_image)
 input_image = torch.unsqueeze(input_image, 0)
 
-test_image2 = default_loader('cat.jpg')
+test_image2 = default_loader('dog.jpg')
 input_image2 = trans(test_image2)
 input_image2 = torch.unsqueeze(input_image2, 0)
 
@@ -61,7 +58,7 @@ image_feature = image_feature.detach().numpy().reshape(-1)
 image_feature2 = features(input_image2).detach().numpy().reshape(-1)
 #print(image_feature.ravel(), image_feature2.ravel())
 #print(image_feature.shape, image_feature2.shape)
-print(compute_similarity(normalized(image_feature), normalized(image_feature2)))
+print(np.dot(normalized(image_feature), normalized(image_feature2)))
 #print(np.dot(normalized(image_feature.ravel()) ,normalized(image_feature2.ravel())))
 #print(np.linalg.norm(normalized(image_feature.ravel()) - normalized(image_feature2.ravel())))
 print('Time for extracting features: {:.2f}'.format(time.time() - start))
