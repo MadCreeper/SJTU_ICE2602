@@ -6,6 +6,12 @@ index_img/
 index*/
 testfolder/
 testfolder_zhCN/
+data/
+checkpoint/
+checkpoints/
+model/
+pretrained/
+temp/
 
 #submit zips
 5200309*.zip
