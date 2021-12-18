@@ -1,12 +1,13 @@
 # SJTU EE208
 
 import time
-
+import os
 import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets.folder import default_loader
+from queue import PriorityQueue
 normalized = lambda x: x / np.linalg.norm(x)
 
 
@@ -24,14 +25,7 @@ trans = transforms.Compose([
     normalize,
 ])
 
-print('Prepare image data!')
-test_image = default_loader('cat2.jpg')
-input_image = trans(test_image)
-input_image = torch.unsqueeze(input_image, 0)
 
-test_image2 = default_loader('dog.jpg')
-input_image2 = trans(test_image2)
-input_image2 = torch.unsqueeze(input_image2, 0)
 
 def features(x):
     x = model.conv1(x)
@@ -49,20 +43,49 @@ def features(x):
 def normalized(vec):
     return vec / np.linalg.norm(vec)
 
-print('Extract features!')
-start = time.time()
-image_feature = features(input_image)
-image_feature = image_feature.detach().numpy().reshape(-1)
-#print(image_feature)
-#print(model(input_image).detach().numpy())
-image_feature2 = features(input_image2).detach().numpy().reshape(-1)
+def calc_similarity(feature1, feature2):
+    return np.dot(normalized(feature1), normalized(feature2))
+
+def load_img_file(filename):
+    target_image = default_loader(filename)
+    target_image = trans(target_image)
+    target_image = torch.unsqueeze(target_image, 0)
+    return target_image
+
+imgs_path = "./imgs"
+if __name__ == "__main__":
+
+    print('Extract features!')
+    start = time.time()
+    print('Prepare image data!')
+    target_image = load_img_file('cat2.jpg')
+
+    target_feature = features(target_image)
+    target_feature = target_feature.detach().numpy().reshape(-1)
+
+    similarities = []
+    for root, dirs, files in os.walk(imgs_path):
+        for name in files:
+            filename = os.path.join(root, name)
+            if not filename.endswith('.jpg') or filename.endswith('.png'):
+                continue
+            #print(filename)
+            img = load_img_file(filename)
+            feature = features(img).detach().numpy().reshape(-1)
+            sim = calc_similarity(feature, target_feature)
+            #print(sim)
+            similarities.append((filename, sim))
+
+similarities = sorted(similarities,reverse = True, key = lambda x: x[1])
+print(similarities)
+
 #print(image_feature.ravel(), image_feature2.ravel())
 #print(image_feature.shape, image_feature2.shape)
-print(np.dot(normalized(image_feature), normalized(image_feature2)))
+ #   print(np.dot(normalized(image_feature), normalized(image_feature2)))
 #print(np.dot(normalized(image_feature.ravel()) ,normalized(image_feature2.ravel())))
 #print(np.linalg.norm(normalized(image_feature.ravel()) - normalized(image_feature2.ravel())))
 print('Time for extracting features: {:.2f}'.format(time.time() - start))
 
 
-print('Save features!')
-np.save('features.npy', image_feature)
+#print('Save features!')
+#np.save('features.npy', image_feature)
