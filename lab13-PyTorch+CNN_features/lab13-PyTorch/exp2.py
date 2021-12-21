@@ -10,9 +10,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-import ssl
+
 from models import resnet20
-ssl._create_default_https_context = ssl._create_unverified_context # 下载模型时取消验证报错
+
 start_epoch = 0
 end_epoch = 4
 lr = 0.1
@@ -49,8 +49,8 @@ model = resnet20()
 # you can continue training based on previously-saved models
 # by uncommenting the following two lines.
 # Do not forget to modify start_epoch and end_epoch.
-restore_model_path = 'checkpoint/ckpt_9_acc_0.708700.pth'
-model.load_state_dict(torch.load(restore_model_path)['net'])
+# restore_model_path = 'pretrained/ckpt_4_acc_63.320000.pth'
+# model.load_state_dict(torch.load(restore_model_path)['net'])
 
 # A better method to calculate loss
 criterion = nn.CrossEntropyLoss()
@@ -93,14 +93,7 @@ def test(epoch):
         #       You can turn to `train` function for help.
         correct = 0
         total = 0
-        for batch_idx, (inputs, targets) in enumerate(testloader):
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
-            
-        acc = correct / total
+        for batch_idx, (inputs, targets
         ########################################
     # Save checkpoint.
     print('Test Acc: %f' % acc)
@@ -114,9 +107,7 @@ def test(epoch):
         os.mkdir('checkpoint')
     torch.save(state, './checkpoint/ckpt_%d_acc_%f.pth' % (epoch, acc))
 
-start_epoch = 10
-end_epoch = 15
-lr = 0.001
+
 for epoch in range(start_epoch, end_epoch + 1):
     train(epoch)
     test(epoch)

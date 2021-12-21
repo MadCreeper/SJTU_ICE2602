@@ -7,7 +7,8 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets.folder import default_loader
-from queue import PriorityQueue
+from cv2 import (imshow, imread, waitKey)
+
 normalized = lambda x: x / np.linalg.norm(x)
 
 
@@ -52,19 +53,21 @@ def load_img_file(filename):
     target_image = torch.unsqueeze(target_image, 0)
     return target_image
 
-imgs_path = "./imgs"
+imgs_path = "./imgs2"
+target_path = 'car1.jpeg'
 if __name__ == "__main__":
 
-    print('Extract features!')
+    
     start = time.time()
-    print('Prepare image data!')
-    target_image = load_img_file('cat2.jpg')
 
+    target_image = load_img_file(target_path)
     target_feature = features(target_image)
     target_feature = target_feature.detach().numpy().reshape(-1)
+    print(f"Image search target {target_path}")
 
     similarities = []
-    for root, dirs, files in os.walk(imgs_path):
+    print("Started extracting features in testset ...")
+    for root, dirs, files in os.walk(imgs_path, topdown=True):
         for name in files:
             filename = os.path.join(root, name)
             if not filename.endswith('.jpg') or filename.endswith('.png'):
@@ -76,15 +79,23 @@ if __name__ == "__main__":
             #print(sim)
             similarities.append((filename, sim))
 
-similarities = sorted(similarities,reverse = True, key = lambda x: x[1])
-print(similarities)
+    print('Done! Time for extracting features: {:.2f}'.format(time.time() - start))
 
+similarities = sorted(similarities,reverse = True, key = lambda x: x[1])
+#print(similarities)
+
+top_cnt = 5
+print(f"Showing top {top_cnt} closest matches: ")
+for filename, sim_score in reversed(similarities[:top_cnt]):
+    img = imread(filename)
+    imshow("Similarity: " + str(sim_score), img)
+
+waitKey(0)
 #print(image_feature.ravel(), image_feature2.ravel())
 #print(image_feature.shape, image_feature2.shape)
  #   print(np.dot(normalized(image_feature), normalized(image_feature2)))
 #print(np.dot(normalized(image_feature.ravel()) ,normalized(image_feature2.ravel())))
 #print(np.linalg.norm(normalized(image_feature.ravel()) - normalized(image_feature2.ravel())))
-print('Time for extracting features: {:.2f}'.format(time.time() - start))
 
 
 #print('Save features!')
