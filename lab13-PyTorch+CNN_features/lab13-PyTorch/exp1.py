@@ -10,16 +10,16 @@ import torch
 from models import Naive_NN
 
 NUM_TRAIN_SAMPLES = 200
-NUM_TRAIN_EPOCHS = 1000  # try: 100, 1000, 10000, 50000
-LEARNING_RATE = 0.01
+NUM_TRAIN_EPOCHS = 2500  # try: 100, 1000, 10000, 50000
+LEARNING_RATE = 0.001
 
 torch.manual_seed(2019)
 
 
 def f(x):
     """Actual function (ground truth)."""
-    return x**2 + 2 * np.sin(x) + np.cos(x - 1) - 5
-
+    #return x**2 + 2 * np.sin(x) + np.cos(x - 1) - 5
+    return 0.1 * np.exp(x) + np.log(1 + x**2)
 # Create dataset
 
 
@@ -82,4 +82,6 @@ with torch.no_grad():
     plt.plot(x, f(x), color='r', label='ground-truth curve')  # ground-truth curve
     plt.scatter(*(dataset.get_all_data()), label='training set')  # training set
     plt.legend()
+    plt.savefig(f"exp1f_EPOCHS{NUM_TRAIN_EPOCHS}_LR{LEARNING_RATE}.pdf")
     plt.show()
+    

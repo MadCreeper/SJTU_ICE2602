@@ -1,0 +1,339 @@
+\documentclass[12pt,a4paper]{article}
+\title{Lab9-OpenCV}
+\usepackage{ctex}
+\usepackage{amsmath,amscd,amsbsy,amssymb,latexsym,url,bm,amsthm}
+\usepackage{epsfig,graphicx,subfigure}
+\usepackage{enumitem,balance}
+\usepackage{wrapfig}
+\usepackage{mathrsfs,euscript}
+\usepackage[usenames]{xcolor}
+\usepackage{hyperref}
+\usepackage[vlined,ruled,commentsnumbered,linesnumbered]{algorithm2e}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{listings}
+\geometry{a4paper,scale=0.8}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{subfigure}
+% --- Python code template ---
+\usepackage[utf8]{inputenc}
+% Default fixed font does not support bold face
+\DeclareFixedFont{\ttb}{T1}{txtt}{bx}{n}{12} % for bold
+\DeclareFixedFont{\ttm}{T1}{txtt}{m}{n}{12}  % for normal
+
+% Custom colors
+\usepackage{color}
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+
+\usepackage{listings}
+
+% Python style for highlighting
+\newcommand\pythonstyle{\lstset{
+language=Python,
+basicstyle=\ttm,
+morekeywords={self},              % Add keywords here
+keywordstyle=\ttb\color{deepblue},
+emph={MyClass,__init__},          % Custom highlighting
+emphstyle=\ttb\color{deepred},    % Custom highlighting style
+stringstyle=\color{deepgreen},
+frame=tb,                         % Any extra options here
+showstringspaces=false
+}}
+% Python environment
+\lstnewenvironment{python}[1][]
+{
+\pythonstyle
+\lstset{#1}
+}
+{}
+
+% Python for external files
+\newcommand\pythonexternal[2][]{{
+\pythonstyle
+\lstinputlisting[#1]{#2}}}
+
+% Python for inline
+\newcommand\pythoninline[1]{{\pythonstyle\lstinline!#1!}}
+
+% --- Python code template ---
+
+
+% --- HTML lstlisting template --- %
+\makeatletter
+\usepackage{color}
+\definecolor{lightgray}{rgb}{0.95, 0.95, 0.95}
+\definecolor{darkgray}{rgb}{0.4, 0.4, 0.4}
+%\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
+\definecolor{editorGray}{rgb}{0.95, 0.95, 0.95}
+\definecolor{editorOcher}{rgb}{1, 0.5, 0} % #FF7F00 -> rgb(239, 169, 0)
+\definecolor{editorGreen}{rgb}{0, 0.5, 0} % #007C00 -> rgb(0, 124, 0)
+\definecolor{orange}{rgb}{1,0.45,0.13}		
+\definecolor{olive}{rgb}{0.17,0.59,0.20}
+\definecolor{brown}{rgb}{0.69,0.31,0.31}
+\definecolor{purple}{rgb}{0.38,0.18,0.81}
+\definecolor{lightblue}{rgb}{0.1,0.57,0.7}
+\definecolor{lightred}{rgb}{1,0.4,0.5}
+\usepackage{upquote}
+\usepackage{listings}
+% CSS
+\lstdefinelanguage{CSS}{
+  keywords={color,background-image:,margin,padding,font,weight,display,position,top,left,right,bottom,list,style,border,size,white,space,min,width, transition:, transform:, transition-property, transition-duration, transition-timing-function},	
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  alsoletter={:},
+  alsodigit={-}
+}
+
+% JavaScript
+\lstdefinelanguage{JavaScript}{
+  morekeywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break},
+  morecomment=[s]{/*}{*/},
+  morecomment=[l]//,
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstdefinelanguage{HTML5}{
+  language=html,
+  sensitive=true,	
+  alsoletter={<>=-},	
+  morecomment=[s]{<!-}{-->},
+  tag=[s],
+  otherkeywords={
+  % General
+  >,
+  % Standard tags
+	<!DOCTYPE,
+  </html, <html, <head, <title, </title, <style, </style, <link, </head, <meta, />,
+	% body
+	</body, <body,
+	% Divs
+	</div, <div, </div>, 
+	% Paragraphs
+	</p, <p, </p>,
+	% scripts
+	</script, <script,
+  % More tags...
+  <canvas, /canvas>, <svg, <rect, <animateTransform, </rect>, </svg>, <video, <source, <iframe, </iframe>, </video>, <image, </image>, <header, </header, <article, </article
+  },
+  ndkeywords={
+  % General
+  =,
+  % HTML attributes
+  charset=, src=, id=, width=, height=, style=, type=, rel=, href=,
+  % SVG attributes
+  fill=, attributeName=, begin=, dur=, from=, to=, poster=, controls=, x=, y=, repeatCount=, xlink:href=,
+  % properties
+  margin:, padding:, background-image:, border:, top:, left:, position:, width:, height:, margin-top:, margin-bottom:, font-size:, line-height:,
+	% CSS3 properties
+  transform:, -moz-transform:, -webkit-transform:,
+  animation:, -webkit-animation:,
+  transition:,  transition-duration:, transition-property:, transition-timing-function:,
+  }
+}
+
+\lstdefinestyle{htmlcssjs} {%
+  % General design
+%  backgroundcolor=\color{editorGray},
+  basicstyle={\footnotesize\ttfamily},   
+  frame=b,
+  % line-numbers
+  xleftmargin={0.75cm},
+  numbers=left,
+  stepnumber=1,
+  firstnumber=1,
+  numberfirstline=true,	
+  % Code design
+  identifierstyle=\color{black},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywordstyle=\color{editorGreen}\bfseries,
+  stringstyle=\color{editorOcher}\ttfamily,
+  commentstyle=\color{brown}\ttfamily,
+  % Code
+  language=HTML5,
+  alsolanguage=JavaScript,
+  alsodigit={.:;},	
+  tabsize=2,
+  showtabs=false,
+  showspaces=false,
+  showstringspaces=false,
+  extendedchars=true,
+  breaklines=true,
+  % German umlauts
+  literate=%
+  {Ö}{{\"O}}1
+  {Ä}{{\"A}}1
+  {Ü}{{\"U}}1
+  {ß}{{\ss}}1
+  {ü}{{\"u}}1
+  {ä}{{\"a}}1
+  {ö}{{\"o}}1
+}
+%
+\lstdefinestyle{py} {%
+language=python,
+literate=%
+*{0}{{{\color{lightred}0}}}1
+{1}{{{\color{lightred}1}}}1
+{2}{{{\color{lightred}2}}}1
+{3}{{{\color{lightred}3}}}1
+{4}{{{\color{lightred}4}}}1
+{5}{{{\color{lightred}5}}}1
+{6}{{{\color{lightred}6}}}1
+{7}{{{\color{lightred}7}}}1
+{8}{{{\color{lightred}8}}}1
+{9}{{{\color{lightred}9}}}1,
+basicstyle=\footnotesize\ttfamily, % Standardschrift
+numbers=left,               % Ort der Zeilennummern
+%numberstyle=\tiny,          % Stil der Zeilennummern
+%stepnumber=2,               % Abstand zwischen den Zeilennummern
+numbersep=5pt,              % Abstand der Nummern zum Text
+tabsize=4,                  % Groesse von Tabs
+extendedchars=true,         %
+breaklines=true,            % Zeilen werden Umgebrochen
+keywordstyle=\color{blue}\bfseries,
+frame=b,
+commentstyle=\color{brown}\itshape,
+stringstyle=\color{editorOcher}\ttfamily, % Farbe der String
+showspaces=false,           % Leerzeichen anzeigen ?
+showtabs=false,             % Tabs anzeigen ?
+xleftmargin=17pt,
+framexleftmargin=17pt,
+framexrightmargin=5pt,
+framexbottommargin=4pt,
+%backgroundcolor=\color{lightgray},
+showstringspaces=false,      % Leerzeichen in Strings anzeigen ?
+}%
+%
+\makeatother
+
+%\begin{lstlisting}[style=htmlcssjs]
+% --- HTML lstlisting template --- %
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\title{Lab13\quad Pytorch, CNN Features}
+\date{2021.12}
+\author{孙济宸\quad \quad 学号：520030910016 \quad  \quad 班级：F2003003}
+\begin{document}
+\maketitle
+\section{实验概览}
+\begin{enumerate}
+\item 尝试使用Pytorch进行函数拟合，测试不同的参数（学习率，迭代次数等），了解Pytorch的基本使用方法以及参数选择
+\item 使用Pytorch，选择合适策略，训练CIFAR-10分类器提高准确度
+\item 使用Resnet50模型提取图片的特征，并实现图像匹配（以图搜图）
+\end{enumerate}
+\section{实验环境}
+\begin{itemize}
+	\item torch, torchvision
+	\item numpy
+	\item cv2 （显示图片）
+
+\end{itemize}
+\newpage
+
+
+
+\section{初等函数拟合}
+\subsection{改变Epochs}
+\begin{figure}[H]
+\subfigure[Epochs=100]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS100_LR0.01.pdf}
+	
+}
+\subfigure[Epochs=1000]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS1000_LR0.01.pdf}
+	
+}	
+\subfigure[Epochs=10000]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS10000_LR0.01.pdf}
+	\centering
+}
+\subfigure[Epochs=50000]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS50000_LR0.01.pdf}
+	\centering
+}
+	\caption{固定LR为0.01,改变Epochs的训练效果}
+	\centering
+\end{figure}
+可见，在$LR=0.01$时，100个epochs时函数欠拟合，1000个时拟合效果良好，而10000个和5000个均出现过拟合，50000个的时候过拟合十分严重。 所以要选择合适的epochs，不能太多也不能太少。
+
+\subsection{改变Learning Rate}
+\begin{figure}
+
+\subfigure[LR=1]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS1000_LR1.pdf}
+	
+}
+\subfigure[LR=0.1]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS1000_LR0.1.pdf}
+	
+}
+\subfigure[LR=0.01]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS1000_LR0.01.pdf}
+	
+}
+\subfigure[LR=0.001]{
+	\includegraphics[width=0.5\textwidth]{../lab13-PyTorch/exp1_EPOCHS1000_LR0.001.pdf}
+	
+}
+	\caption{固定Epochs为1000,改变LR的训练效果}
+	\centering
+\end{figure}
+取Epochs固定为1000。可见，学习率太大时，Loss一直很大，起不到拟合效果；LR=0.1时Loss还是较大，拟合效果差；LR=0.01时效果比较好。LR=0.001时，没有足够的迭代次数，loss又比较大。
+
+\subsection{自定义的函数}
+$$f(x)=0.1e^x + log(1+x^2)$$
+经过测试，LR为0.001，Epochs为2500时对这个函数拟合效果较好；但是由于噪声幅值相对于函数真值较大，还是有一定偏差。
+\begin{figure}[H]
+
+\subfigure[LR=1]{
+	\includegraphics[width=1\textwidth]{../lab13-PyTorch/exp1f_EPOCHS2500_LR0.001.pdf}
+	
+}
+	\caption{Epochs = 2500, LR=0.001}
+	\centering
+\end{figure}
+
+\section{CIFAR-10}
+策略：以0.1的学习率(learning rate, lr)训练5个epoch，再以0.01的lr训练5个epoch,再用0.01的lr训练5个epoch
+最终达到75\%左右的准确率。
+\begin{figure}[H]
+\includegraphics[width=1\textwidth]{../lab13-PyTorch/acc_epochs.pdf}
+	\centering
+\end{figure}
+
+\section{分析与思考}
+\begin{itemize}
+\item 颜色直方图反映了图片中RGB三种颜色的多少，比如B比较高的人眼看起来整张图蓝色偏多。
+\item 灰度直方图峰值位置体现了图片的明暗，分布集中程度则体现为对比度。
+\item 梯度（强度）直方图体现了图片纹理简单或复杂。纹理复杂的图片分布比较均匀，反之分布集中在梯度比较小的地方。
+\item 图片梯度计算由于有平方、开根号操作，运行效率较低，一张图要跑几秒钟；
+\item 画图片直方图一定要对数据进行归一化操作，以消除图片大小尺寸的影响。
+\end{itemize}
+
+\end{document}
+

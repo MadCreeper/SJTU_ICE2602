@@ -7,7 +7,7 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets.folder import default_loader
-from cv2 import (imshow, imread, waitKey)
+from cv2 import (imshow, imread, waitKey, destroyAllWindows)
 
 normalized = lambda x: x / np.linalg.norm(x)
 
@@ -53,10 +53,10 @@ def load_img_file(filename):
     target_image = torch.unsqueeze(target_image, 0)
     return target_image
 
-imgs_path = "./imgs2"
-target_path = 'car1.jpeg'
-if __name__ == "__main__":
 
+if __name__ == "__main__":
+    imgs_path = "./imgs2"
+    target_path = 'cat2.jpg'
     
     start = time.time()
 
@@ -87,10 +87,14 @@ similarities = sorted(similarities,reverse = True, key = lambda x: x[1])
 top_cnt = 5
 print(f"Showing top {top_cnt} closest matches: ")
 for filename, sim_score in reversed(similarities[:top_cnt]):
+    filename = os.path.normpath(os.path.join('./', filename))
+    print(filename)
     img = imread(filename)
+ 
     imshow("Similarity: " + str(sim_score), img)
 
 waitKey(0)
+destroyAllWindows()
 #print(image_feature.ravel(), image_feature2.ravel())
 #print(image_feature.shape, image_feature2.shape)
  #   print(np.dot(normalized(image_feature), normalized(image_feature2)))
@@ -100,3 +104,4 @@ waitKey(0)
 
 #print('Save features!')
 #np.save('features.npy', image_feature)
+    
